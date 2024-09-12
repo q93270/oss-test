@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>上传文件到OSS</title>
+  </head>
+  <body>
+    <div class="container">
+      <form>
+        <div class="mb-3">
+          <label for="file" class="form-label">选择文件</label>
+          <input
+            type="file"
+            class="form-control"
+            id="file"
+            name="file"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">上传</button>
+      </form>
+    </div>
+    <script type="text/javascript">
+      const form = document.querySelector("form");
+      const fileInput = document.querySelector("#file");
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        let file = fileInput.files[0];
+        let filename = fileInput.files[0].name;
+        fetch("/get_post_signature_for_oss_upload", { method: "GET" })
+          .then((response) => response.json())
+          .then((data) => {
+            const formData = new FormData();
+            formData.append("name", filename);
+            formData.append("policy", data.policy);
+            formData.append("OSSAccessKeyId", data.ossAccessKeyId);
+            formData.append('x-oss-security-token', data.securityToken);
+            formData.append("success_action_status", "200");
+            formData.append("signature", data.signature);
+            formData.append("key", data.dir + filename);
+            // file必须为最后一个表单域，除file以外的其他表单域无顺序要求。
+            formData.append("file", file);
+            fetch(data.host, { method: "POST", body: formData })
+              .then((res) => {
+                if (res.ok) {
+                  console.log(res);
+                  alert("文件已上传");
+                  return;
+                }
+                if (res.status === 403) {
+                  alert("缺少OSS操作权限");
+                } else {
+                  alert(`上传请求失败，请求结果：${res.statusText}`);
+                }
+              })
+              .catch((error) => {
+                if (
+                  error.name === "TypeError" &&
+                  error.message.includes("Failed to fetch")
+                ) {
+                  alert("存在跨域问题，请确认存储桶CORS已正确配置跨域请求。建议将来源设置为当前域名（直接复制浏览器地址需要去除末尾'/')或者*，允许Methods设置为POST，允许Headers设置为*");
+                } else {
+                  alert(
+                    `请求失败，请检查网络连接并重试。错误信息：${error.message}`
+                  );
+                }
+              });
+            // 结束代码a融合部分
+          })
+          .catch((error) => {
+            console.log(
+              "Error occurred while getting OSS upload parameters:",
+              error
+            );
+          });
+      });
+    </script>
+  </body>
+</html>
